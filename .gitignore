@@ -1,0 +1,31 @@
+# Ambientes virtuais
+.venv/
+venv/
+ENV/
+env/
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Logs gerados pelo scraper
+*.log
+scraper.log
+
+# Arquivos de exportação de dados (csv e excel)
+*.csv
+*.xlsx
+videos_em_alta.csv
+videos_em_alta.xlsx
+
+# Pacote deb de instalação do navegador
+*.deb
+
+# IDEs e S.O.
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

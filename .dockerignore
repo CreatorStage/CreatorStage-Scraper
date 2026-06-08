@@ -1,0 +1,13 @@
+# Exclui arquivo pesado do Chrome (a imagem base selenium/standalone-chrome já tem o Chrome)
+google-chrome-stable_current_amd64.deb
+
+# Exclui ambiente virtual Python local
+.venv
+__pycache__
+*.pyc
+*.pyo
+
+# Exclui logs e outputs do scraper
+scraper.log
+videos_em_alta.csv
+videos_em_alta.xlsx
