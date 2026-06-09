@@ -1,21 +1,20 @@
-# Usamos a imagem oficial do Selenium com Chrome já instalado e configurado
-FROM selenium/standalone-chrome:latest
+# Usamos a imagem oficial do Python em versão slim (muito mais leve)
+FROM python:3.10-slim
 
-# Troca para root para instalar Python e dependências
-USER root
-
-# Instala Python, pip e dependências de sistema
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip python3-venv && \
-    rm -rf /var/lib/apt/lists/*
+# Instala Chromium, ChromeDriver e dependências necessárias para rodar em headless
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
+    chromium-driver \
+    && rm -rf /var/lib/apt/lists/*
 
 # Define o diretório de trabalho
 WORKDIR /app
 
-# Copia os arquivos do projeto (exclui o .deb pesado com .dockerignore)
+# Copia as dependências primeiro para aproveitar o cache de camadas do Docker
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 
+# Copia os arquivos do projeto (exclui o .deb e outros pesados com .dockerignore)
 COPY . .
 
 # Expõe a porta que o FastAPI vai rodar
@@ -25,4 +24,4 @@ EXPOSE 8000
 ENV HEADLESS=true
 
 # Comando para iniciar o servidor
-CMD ["python3", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

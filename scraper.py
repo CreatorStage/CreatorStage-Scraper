@@ -43,8 +43,21 @@ class YouTubeScraper:
         options.add_argument('--lang=pt-BR')
         options.add_argument('--window-size=1920,1080')
         
-        # O Service em conjunto com ChromeDriverManager cuida do download e path do driver
-        service = Service(ChromeDriverManager().install())
+        # Verifica se estamos em ambiente Docker com chromium-driver do sistema instalado
+        import os
+        system_chromedriver = "/usr/bin/chromedriver"
+        system_chromium = "/usr/bin/chromium"
+        if not os.path.exists(system_chromium) and os.path.exists("/usr/bin/chromium-browser"):
+            system_chromium = "/usr/bin/chromium-browser"
+            
+        if os.path.exists(system_chromedriver) and os.path.exists(system_chromium):
+            logger.info(f"Usando Chromium ({system_chromium}) e ChromeDriver ({system_chromedriver}) do sistema...")
+            options.binary_location = system_chromium
+            service = Service(executable_path=system_chromedriver)
+        else:
+            logger.info("Usando webdriver-manager para gerenciar ChromeDriver...")
+            service = Service(ChromeDriverManager().install())
+            
         driver = webdriver.Chrome(service=service, options=options)
         driver.maximize_window()
         return driver
