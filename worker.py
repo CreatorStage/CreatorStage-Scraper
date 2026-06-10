@@ -11,25 +11,31 @@ RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
 RABBITMQ_PORT = int(os.getenv("RABBITMQ_PORT", 5672))
 RABBITMQ_USER = os.getenv("RABBITMQ_USER", "guest")
 RABBITMQ_PASS = os.getenv("RABBITMQ_PASS", "guest")
+RABBITMQ_URL = os.getenv("RABBITMQ_URL")
 
 REQUESTS_QUEUE = "youtube.scrape.requests"
 RESULTS_QUEUE = "youtube.scrape.results"
 
 def get_rabbitmq_connection():
-    credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
-    parameters = pika.ConnectionParameters(
-        host=RABBITMQ_HOST,
-        port=RABBITMQ_PORT,
-        credentials=credentials,
-        heartbeat=600,
-        blocked_connection_timeout=300
-    )
+    if RABBITMQ_URL:
+        parameters = pika.URLParameters(RABBITMQ_URL)
+        connection_desc = "URL"
+    else:
+        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
+        parameters = pika.ConnectionParameters(
+            host=RABBITMQ_HOST,
+            port=RABBITMQ_PORT,
+            credentials=credentials,
+            heartbeat=600,
+            blocked_connection_timeout=300
+        )
+        connection_desc = f"{RABBITMQ_HOST}:{RABBITMQ_PORT}"
     
     last_error = None
     # Retry logic if RabbitMQ isn't ready
     for i in range(10):
         try:
-            logger.info(f"Tentando conectar ao RabbitMQ em {RABBITMQ_HOST}:{RABBITMQ_PORT} (tentativa {i+1}/10)...")
+            logger.info(f"Tentando conectar ao RabbitMQ via {connection_desc} (tentativa {i+1}/10)...")
             connection = pika.BlockingConnection(parameters)
             return connection
         except pika.exceptions.AMQPConnectionError as e:
