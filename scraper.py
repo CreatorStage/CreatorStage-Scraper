@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -13,21 +13,39 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 import config
 
-# Configuração de logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("scraper.log", encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
 logger = logging.getLogger(__name__)
+
+def setup_logging(log_filename: str = "scraper.log"):
+    """Configura o sistema de logging do projeto."""
+    handlers = []
+    try:
+        handlers.append(logging.FileHandler(log_filename, encoding='utf-8'))
+    except PermissionError:
+        # Em ambientes com restrição de escrita (como containers Docker),
+        # ignoramos o arquivo de log e usamos apenas a saída padrão.
+        pass
+    handlers.append(logging.StreamHandler())
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=handlers
+    )
+
+    if len(handlers) == 1:
+        logging.getLogger(__name__).warning(
+            "Permissão negada para gravar o arquivo de log %r. Logando apenas no terminal.",
+            log_filename
+        )
 
 class YouTubeScraper:
     def __init__(self):
         """Inicializa o WebDriver utilizando webdriver-manager."""
-        self.driver = self._init_driver()
+        try:
+            self.driver = self._init_driver()
+        except Exception as e:
+            logger.exception("Erro ao inicializar o WebDriver")
+            raise RuntimeError("Falha ao inicializar o YouTubeScraper WebDriver") from e
         self.data = []
 
     def _init_driver(self):
@@ -183,8 +201,8 @@ class YouTubeScraper:
             
             return True
             
-        except Exception as e:
-            logger.error(f"Erro ao navegar para {base_url}: {str(e)}")
+        except Exception:
+            logger.exception(f"Erro ao navegar para {base_url!r}")
             return False
 
     def extract_videos(self, channel_url):
@@ -301,14 +319,14 @@ class YouTubeScraper:
                     "titulo": video["titulo"],
                     "url_video": video["url_video"],
                     "visualizacoes": video["visualizacoes"],
-                    "data_coleta": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    "data_coleta": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
                 })
                 videos_collected += 1
                     
-            logger.info(f"[{videos_collected}/{config.MAX_VIDEOS}] vídeos coletados com sucesso do canal {channel_name}.")
+            logger.info(f"[{videos_collected}/{config.MAX_VIDEOS}] vídeos coletados com sucesso do canal {channel_name!r}.")
             
-        except Exception as e:
-            logger.error(f"Erro grave na extração de vídeos: {str(e)}")
+        except Exception:
+            logger.exception(f"Erro grave na extração de vídeos para o canal {channel_name!r}")
 
     def export_data(self):
         """
@@ -325,15 +343,15 @@ class YouTubeScraper:
         try:
             df.to_csv("videos_em_alta.csv", index=False, encoding='utf-8-sig')
             logger.info("Arquivo 'videos_em_alta.csv' gerado com sucesso!")
-        except Exception as e:
-            logger.error(f"Erro ao salvar CSV: {str(e)}")
+        except Exception:
+            logger.exception("Erro ao salvar CSV")
             
         # Exporta para Excel
         try:
             df.to_excel("videos_em_alta.xlsx", index=False, engine='openpyxl')
             logger.info("Arquivo 'videos_em_alta.xlsx' gerado com sucesso!")
-        except Exception as e:
-            logger.error(f"Erro ao salvar Excel: {str(e)}")
+        except Exception:
+            logger.exception("Erro ao salvar Excel")
 
     def close(self):
         """Encerra a sessão do WebDriver."""

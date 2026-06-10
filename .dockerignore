@@ -1,13 +1,28 @@
-# Exclui arquivo pesado do Chrome (a imagem base selenium/standalone-chrome já tem o Chrome)
-google-chrome-stable_current_amd64.deb
+# Version control
+.git
+.gitignore
 
-# Exclui ambiente virtual Python local
-.venv
-__pycache__
+# Environments
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
 *.pyc
 *.pyo
+*.pyd
 
-# Exclui logs e outputs do scraper
+# Local data and installers
+google-chrome-stable_current_amd64.deb
 scraper.log
-videos_em_alta.csv
-videos_em_alta.xlsx
+*.csv
+*.xlsx
+
+# IDE files
+.idea/
+.vscode/
+
+# Docker files
+Dockerfile
+.dockerignore
+docker-compose*

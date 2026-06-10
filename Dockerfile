@@ -7,21 +7,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
-# Define o diretório de trabalho
+# Cria um usuário não-root para rodar a aplicação de forma segura
+RUN groupadd -r scraper && useradd -r -g scraper -G audio,video scraper \
+    && mkdir -p /home/scraper/Downloads \
+    && chown -R scraper:scraper /home/scraper
+
 WORKDIR /app
 
 # Copia as dependências primeiro para aproveitar o cache de camadas do Docker
 COPY requirements.txt .
-RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --break-system-packages -r requirements.txt
 
-# Copia os arquivos do projeto (exclui o .deb e outros pesados com .dockerignore)
-COPY . .
+# Copia o restante do código com as permissões corretas
+COPY --chown=scraper:scraper . .
 
-# Expõe a porta que o FastAPI vai rodar
-EXPOSE 8000
+# Altera para o usuário não-root
+USER scraper
 
 # Garante que o Chrome rode sempre em headless dentro do container
 ENV HEADLESS=true
 
-# Comando para iniciar o servidor
-CMD ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Comando para iniciar o worker consumidor
+CMD ["python", "worker.py"]
