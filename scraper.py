@@ -17,14 +17,26 @@ logger = logging.getLogger(__name__)
 
 def setup_logging(log_filename: str = "scraper.log"):
     """Configura o sistema de logging do projeto."""
+    handlers = []
+    try:
+        handlers.append(logging.FileHandler(log_filename, encoding='utf-8'))
+    except PermissionError:
+        # Em ambientes com restrição de escrita (como containers Docker),
+        # ignoramos o arquivo de log e usamos apenas a saída padrão.
+        pass
+    handlers.append(logging.StreamHandler())
+
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler(log_filename, encoding='utf-8'),
-            logging.StreamHandler()
-        ]
+        handlers=handlers
     )
+
+    if len(handlers) == 1:
+        logging.getLogger(__name__).warning(
+            "Permissão negada para gravar o arquivo de log %r. Logando apenas no terminal.",
+            log_filename
+        )
 
 class YouTubeScraper:
     def __init__(self):
