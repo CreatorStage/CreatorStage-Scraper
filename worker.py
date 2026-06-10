@@ -5,7 +5,6 @@ import os
 import time
 from scraper import YouTubeScraper
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "localhost")
@@ -26,6 +25,7 @@ def get_rabbitmq_connection():
         blocked_connection_timeout=300
     )
     
+    last_error = None
     # Retry logic if RabbitMQ isn't ready
     for i in range(10):
         try:
@@ -33,9 +33,10 @@ def get_rabbitmq_connection():
             connection = pika.BlockingConnection(parameters)
             return connection
         except pika.exceptions.AMQPConnectionError as e:
-            logger.warning(f"Erro de conexão com RabbitMQ: {e}. Aguardando 5 segundos...")
+            last_error = e
+            logger.warning(f"Erro de conexão com RabbitMQ: {e!r}. Aguardando 5 segundos...")
             time.sleep(5)
-    raise Exception("Não foi possível conectar ao RabbitMQ.")
+    raise RuntimeError("Não foi possível conectar ao RabbitMQ.") from last_error
 
 def process_message(ch, method, properties, body):
     logger.info(f"Mensagem de request recebida: {body.decode('utf-8')}")
@@ -69,7 +70,7 @@ def process_message(ch, method, properties, body):
                 logger.error(error_msg)
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Erro interno no scraper: {error_msg}")
+            logger.exception(f"Erro interno no scraper ao processar {source_channel_url!r}")
         finally:
             scraper.close()
             
@@ -94,13 +95,16 @@ def process_message(ch, method, properties, body):
         )
         logger.info(f"Resultado publicado na fila {RESULTS_QUEUE} com status: {response_payload['status']}")
         
-    except Exception as e:
-        logger.error(f"Erro grave no processamento da mensagem: {e}")
+    except Exception:
+        logger.exception("Erro grave no processamento da mensagem")
         
     # Acknowledge the message
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def main():
+    from scraper import setup_logging
+    setup_logging()
+
     logger.info("Iniciando Worker Python do YouTube Scraper...")
     connection = get_rabbitmq_connection()
     channel = connection.channel()

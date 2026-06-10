@@ -8,6 +8,9 @@ from scraper import YouTubeScraper
 logger = logging.getLogger(__name__)
 
 def main():
+    from scraper import setup_logging
+    setup_logging()
+
     logger.info("==========================================")
     logger.info(" Iniciando Coleta de Vídeos do YouTube")
     logger.info("==========================================")
@@ -24,7 +27,7 @@ def main():
         logger.info(f"Serão processados {len(config.CHANNELS)} canais.")
         
         for url in tqdm(config.CHANNELS, desc="Processando Canais", unit="canal"):
-            logger.info(f"--- Processando: {url} ---")
+            logger.info(f"--- Processando: {url!r} ---")
             
             # Navega até o canal e acessa a aba Em Alta
             success = scraper.navigate_to_popular(url)
@@ -33,10 +36,10 @@ def main():
                 # Extrai os dados se a navegação foi bem sucedida
                 scraper.extract_videos(url)
             else:
-                logger.error(f"Pulando extração para {url} devido a falha na navegação.")
+                logger.error(f"Pulando extração para {url!r} devido a falha na navegação.")
                 
-    except Exception as e:
-        logger.critical(f"Erro fatal durante a execução principal: {str(e)}")
+    except Exception:
+        logger.exception("Erro fatal durante a execução principal")
     
     finally:
         if scraper:

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "python-best-practices": {
+      "source": "nathan-gage/python-skills",
+      "sourceType": "github",
+      "skillPath": "skills/python-best-practices/SKILL.md",
+      "computedHash": "2f674125a34096f8b1b980fa6e4676cd955b8bfbf5b77effba1ebb82dfa34032"
+    }
+  }
+}
