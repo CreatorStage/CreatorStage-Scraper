@@ -17,11 +17,8 @@ RUN pip install --no-cache-dir --break-system-packages -r requirements.txt
 # Copia os arquivos do projeto (exclui o .deb e outros pesados com .dockerignore)
 COPY . .
 
-# Expõe a porta que o FastAPI vai rodar
-EXPOSE 8000
-
 # Garante que o Chrome rode sempre em headless dentro do container
 ENV HEADLESS=true
 
-# Comando para iniciar o servidor
-CMD ["python", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+# Comando para iniciar o worker consumidor
+CMD ["python", "worker.py"]
