@@ -26,4 +26,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: fernandeeess/yt-scraper:latest
+          tags: fernandeeess/creatorsdeck-scraper:latest

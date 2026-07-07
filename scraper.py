@@ -60,6 +60,11 @@ class YouTubeScraper:
         options.add_argument('--mute-audio')
         options.add_argument('--lang=pt-BR')
         options.add_argument('--window-size=1920,1080')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-application-cache')
+        options.add_argument('--disk-cache-size=1048576')
+        options.add_argument('--media-cache-size=1048576')
+        options.add_argument('--js-flags="--max-old-space-size=256"')
         
         # Verifica se estamos em ambiente Docker com chromium-driver do sistema instalado
         import os
@@ -88,6 +93,24 @@ class YouTubeScraper:
           - Layout B: Dropdown (role="combobox") que abre menu com "Em alta"/"Popular"
         Retorna True em caso de sucesso, False caso contrário.
         """
+        # Se for link de vídeo, resolve o link do canal do criador primeiro
+        if "watch?v=" in channel_url or "youtu.be/" in channel_url or "/shorts/" in channel_url:
+            logger.info(f"URL de vídeo detectada no scraper: {channel_url}. Resolvendo URL do canal correspondente...")
+            try:
+                self.driver.get(channel_url)
+                time.sleep(3)
+                channel_el = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "ytd-video-owner-renderer yt-formatted-string.ytd-channel-name a, #channel-name a, .ytd-channel-name a"))
+                )
+                resolved_channel_url = channel_el.get_attribute("href")
+                if resolved_channel_url:
+                    logger.info(f"URL do canal resolvida com sucesso: {resolved_channel_url}")
+                    channel_url = resolved_channel_url
+                else:
+                    logger.warning("Elemento do canal encontrado mas sem href. Mantendo URL original.")
+            except Exception as e:
+                logger.error(f"Erro ao resolver URL do canal a partir do vídeo: {e}")
+
         base_url = channel_url.rstrip('/')
         if not base_url.endswith('/videos'):
             base_url = f"{base_url}/videos"
