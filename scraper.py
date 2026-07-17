@@ -412,12 +412,20 @@ class YouTubeScraper:
             views_raw = details.get('views', '')
             precise_views = None
             if views_raw:
-                digits = re.sub(r'\D', '', views_raw)
-                if digits:
-                    precise_views = int(digits)
+                # Extrair os dígitos que vêm antes da palavra 'visualiza' ou 'view'
+                # Garantimos que não haja letras abreviadas como 'mi', 'mil', 'k' coladas no número
+                match = re.search(r'([\d\.,]+)\s*(?:visualiza|view)', views_raw, re.IGNORECASE)
+                if match:
+                    num_str = match.group(1).replace('.', '').replace(',', '')
+                    if num_str.isdigit():
+                        precise_views = int(num_str)
 
             published_at = details.get('publishedAt', '')
-
+            # Extrair apenas a parte da data
+            date_match = re.search(r'(há\s+\d+\s+(?:minutos?|horas?|dias?|semanas?|meses|mês|anos?)|(?:Transmitido ao vivo em|Estreou em)\s+.*|\d{1,2}\s+de\s+[a-z]+\.?\s+de\s+\d{4})', published_at, re.IGNORECASE)
+            if date_match:
+                published_at = date_match.group(1).strip()
+            
             logger.info(f"Detalhes extraídos - Views: {precise_views}, Data: {published_at}")
             return {
                 "preciseViewsCount": precise_views,
