@@ -104,7 +104,61 @@ def process_message(ch, method, properties, body):
     except Exception:
         logger.exception("Erro grave no processamento da mensagem")
         
-    # Acknowledge the message
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+
+def process_video_details_message(ch, method, properties, body):
+    logger.info(f"Mensagem de request (detalhes de vídeo) recebida: {body.decode('utf-8')}")
+    
+    try:
+        data = json.loads(body.decode('utf-8'))
+        video_id = data.get("videoId")
+        video_url = data.get("videoUrl")
+        
+        if not video_url or not video_id:
+            logger.error("URL do vídeo ou ID ausente na mensagem.")
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
+            
+        logger.info(f"Iniciando raspagem de detalhes para URL: {video_url}")
+        
+        scraper = YouTubeScraper()
+        details = None
+        error_msg = None
+        
+        try:
+            details = scraper.extract_video_details(video_url)
+            if not details:
+                error_msg = "Falha ao extrair detalhes da página do vídeo."
+                logger.error(error_msg)
+        except Exception as e:
+            error_msg = str(e)
+            logger.exception(f"Erro interno no scraper de detalhes ao processar {video_url!r}")
+        finally:
+            scraper.close()
+            
+        # Publica o resultado
+        response_payload = {
+            "videoId": video_id,
+            "status": "success" if (details and not error_msg) else "failed",
+            "publishedAt": details.get("publishedAt") if details else None,
+            "preciseViewsCount": details.get("preciseViewsCount") if details else None,
+            "error": error_msg
+        }
+        
+        ch.basic_publish(
+            exchange='',
+            routing_key="youtube.scrape.video_details.results",
+            body=json.dumps(response_payload),
+            properties=pika.BasicProperties(
+                content_type="application/json",
+                delivery_mode=2  # persistent
+            )
+        )
+        logger.info(f"Resultado de detalhes publicado com status: {response_payload['status']}")
+        
+    except Exception:
+        logger.exception("Erro grave no processamento da mensagem de detalhes")
+        
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def main():
@@ -118,13 +172,16 @@ def main():
     # Declarar filas para garantir que existem
     channel.queue_declare(queue=REQUESTS_QUEUE, durable=True)
     channel.queue_declare(queue=RESULTS_QUEUE, durable=True)
+    channel.queue_declare(queue="youtube.scrape.video_details.requests", durable=True)
+    channel.queue_declare(queue="youtube.scrape.video_details.results", durable=True)
     
     # Configurar prefetch limit (consome 1 mensagem por vez)
     channel.basic_qos(prefetch_count=1)
     
     channel.basic_consume(queue=REQUESTS_QUEUE, on_message_callback=process_message)
+    channel.basic_consume(queue="youtube.scrape.video_details.requests", on_message_callback=process_video_details_message)
     
-    logger.info(f"Escutando a fila {REQUESTS_QUEUE}...")
+    logger.info(f"Escutando as filas de requests...")
     try:
         channel.start_consuming()
     except KeyboardInterrupt:

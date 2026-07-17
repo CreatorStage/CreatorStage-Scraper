@@ -1,5 +1,6 @@
 import logging
 import time
+import random
 from datetime import datetime, timezone
 import pandas as pd
 from selenium import webdriver
@@ -350,6 +351,81 @@ class YouTubeScraper:
             
         except Exception:
             logger.exception(f"Erro grave na extração de vídeos para o canal {channel_name!r}")
+
+    def extract_video_details(self, video_url):
+        """
+        Navega para a página do vídeo, aguarda o delay exato de 5s,
+        e extrai views exatas e data de publicação.
+        """
+        try:
+            # Estratégia anti-bloqueio: delay exato pedido pelo usuário
+            logger.info(f"Aguardando 5.0s (anti-bloqueio) antes de acessar {video_url}...")
+            time.sleep(5.0)
+
+            logger.info(f"Acessando URL do vídeo para detalhes: {video_url}")
+            self.driver.get(video_url)
+            
+            # Aguarda a página carregar
+            for attempt in range(15):
+                count = self.driver.execute_script("""
+                    return document.querySelectorAll('yt-formatted-string#info').length;
+                """)
+                if count and count > 0:
+                    logger.info("Página do vídeo carregada. Elementos encontrados.")
+                    break
+                time.sleep(2)
+            else:
+                logger.warning(f"Timeout aguardando detalhes do vídeo em {video_url}")
+
+            details = self.driver.execute_script(r"""
+                var viewsText = '';
+                var publishedAtText = '';
+                
+                // Views exatas
+                var viewCountEl = document.querySelector('#view-count');
+                if (viewCountEl) {
+                    viewsText = viewCountEl.textContent.trim();
+                }
+                if (!viewsText) {
+                    var formatStringViews = document.querySelectorAll('yt-formatted-string.ytd-watch-info-text');
+                    for (var i=0; i<formatStringViews.length; i++) {
+                        if (formatStringViews[i].textContent.includes('visualiza') || formatStringViews[i].textContent.includes('view')) {
+                            viewsText = formatStringViews[i].textContent.trim();
+                            break;
+                        }
+                    }
+                }
+                
+                // Data exata
+                var infoEl = document.querySelector('yt-formatted-string#info');
+                if (infoEl) {
+                    publishedAtText = infoEl.textContent.trim();
+                }
+                
+                return {
+                    views: viewsText,
+                    publishedAt: publishedAtText
+                };
+            """)
+            
+            import re
+            views_raw = details.get('views', '')
+            precise_views = None
+            if views_raw:
+                digits = re.sub(r'\D', '', views_raw)
+                if digits:
+                    precise_views = int(digits)
+
+            published_at = details.get('publishedAt', '')
+
+            logger.info(f"Detalhes extraídos - Views: {precise_views}, Data: {published_at}")
+            return {
+                "preciseViewsCount": precise_views,
+                "publishedAt": published_at
+            }
+        except Exception as e:
+            logger.exception(f"Erro ao extrair detalhes de {video_url}")
+            return None
 
     def export_data(self):
         """
