@@ -104,7 +104,7 @@ def process_message(ch, method, properties, body):
     except Exception:
         logger.exception("Erro grave no processamento da mensagem")
         
-        ch.basic_ack(delivery_tag=method.delivery_tag)
+    ch.basic_ack(delivery_tag=method.delivery_tag)
 
 def process_video_details_message(ch, method, properties, body):
     logger.info(f"Mensagem de request (detalhes de vídeo) recebida: {body.decode('utf-8')}")
