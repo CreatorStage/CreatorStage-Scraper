@@ -122,7 +122,7 @@ class YouTubeScraper:
             
             # Aguarda vídeos carregarem no DOM
             for attempt in range(15):
-                time.sleep(2)
+                time.sleep(0.5)
                 count = self.driver.execute_script("""
                     return document.querySelectorAll('a[href*="/watch?v="]').length;
                 """)
@@ -212,7 +212,7 @@ class YouTubeScraper:
             
             # Aguarda a página recarregar após o clique
             if clicked in ('tab_clicked', 'menu_item_clicked', 'fallback_clicked', 'not_found'):
-                time.sleep(3)
+                time.sleep(1)
                 # Espera os novos vídeos carregarem
                 for attempt in range(10):
                     count = self.driver.execute_script("""
@@ -221,7 +221,7 @@ class YouTubeScraper:
                     if count and count > 0:
                         logger.info(f"Vídeos populares carregados. {count} containers no DOM.")
                         break
-                    time.sleep(1)
+                    time.sleep(0.5)
             
             return True
             
