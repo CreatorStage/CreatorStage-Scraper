@@ -161,33 +161,58 @@ def process_video_details_message(ch, method, properties, body):
         
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
-def main():
+import threading
+
+def consume_requests():
     from scraper import setup_logging
     setup_logging()
-
-    logger.info("Iniciando Worker Python do YouTube Scraper...")
+    logger.info("Iniciando Thread para youtube.scrape.requests...")
     connection = get_rabbitmq_connection()
     channel = connection.channel()
-    
-    # Declarar filas para garantir que existem
     channel.queue_declare(queue=REQUESTS_QUEUE, durable=True)
     channel.queue_declare(queue=RESULTS_QUEUE, durable=True)
-    channel.queue_declare(queue="youtube.scrape.video_details.requests", durable=True)
-    channel.queue_declare(queue="youtube.scrape.video_details.results", durable=True)
-    
-    # Configurar prefetch limit (consome 1 mensagem por vez)
     channel.basic_qos(prefetch_count=1)
-    
     channel.basic_consume(queue=REQUESTS_QUEUE, on_message_callback=process_message)
-    channel.basic_consume(queue="youtube.scrape.video_details.requests", on_message_callback=process_video_details_message)
-    
-    logger.info(f"Escutando as filas de requests...")
     try:
         channel.start_consuming()
+    except Exception as e:
+        logger.error(f"Erro no consume_requests: {e}")
+    finally:
+        connection.close()
+
+def consume_details():
+    from scraper import setup_logging
+    setup_logging()
+    logger.info("Iniciando Thread para youtube.scrape.video_details.requests...")
+    connection = get_rabbitmq_connection()
+    channel = connection.channel()
+    channel.queue_declare(queue="youtube.scrape.video_details.requests", durable=True)
+    channel.queue_declare(queue="youtube.scrape.video_details.results", durable=True)
+    channel.basic_qos(prefetch_count=1)
+    channel.basic_consume(queue="youtube.scrape.video_details.requests", on_message_callback=process_video_details_message)
+    try:
+        channel.start_consuming()
+    except Exception as e:
+        logger.error(f"Erro no consume_details: {e}")
+    finally:
+        connection.close()
+
+def main():
+    logger.info("Iniciando Worker Python do YouTube Scraper (Multi-thread)...")
+    t1 = threading.Thread(target=consume_requests)
+    t2 = threading.Thread(target=consume_details)
+    
+    t1.daemon = True
+    t2.daemon = True
+    
+    t1.start()
+    t2.start()
+    
+    try:
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         logger.info("Worker parado pelo usuário.")
-        channel.stop_consuming()
-    connection.close()
 
 if __name__ == "__main__":
     main()
