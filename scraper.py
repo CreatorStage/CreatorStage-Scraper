@@ -365,66 +365,44 @@ class YouTubeScraper:
             logger.info(f"Acessando URL do vídeo para detalhes: {video_url}")
             self.driver.get(video_url)
             
-            # Aguarda a página carregar
+            # Aguarda a variável global da página
             for attempt in range(15):
-                count = self.driver.execute_script("""
-                    return document.querySelectorAll('yt-formatted-string#info').length;
-                """)
-                if count and count > 0:
-                    logger.info("Página do vídeo carregada. Elementos encontrados.")
+                has_data = self.driver.execute_script("return window.ytInitialPlayerResponse != undefined;")
+                if has_data:
+                    logger.info("Página do vídeo carregada. Dados encontrados.")
                     break
-                time.sleep(2)
+                time.sleep(1)
             else:
                 logger.warning(f"Timeout aguardando detalhes do vídeo em {video_url}")
 
-            details = self.driver.execute_script(r"""
-                var viewsText = '';
-                var publishedAtText = '';
-                
-                // Views exatas
-                var viewCountEl = document.querySelector('#view-count');
-                if (viewCountEl) {
-                    viewsText = viewCountEl.textContent.trim();
-                }
-                if (!viewsText) {
-                    var formatStringViews = document.querySelectorAll('yt-formatted-string.ytd-watch-info-text');
-                    for (var i=0; i<formatStringViews.length; i++) {
-                        if (formatStringViews[i].textContent.includes('visualiza') || formatStringViews[i].textContent.includes('view')) {
-                            viewsText = formatStringViews[i].textContent.trim();
-                            break;
-                        }
-                    }
-                }
-                
-                // Data exata
-                var infoEl = document.querySelector('yt-formatted-string#info');
-                if (infoEl) {
-                    publishedAtText = infoEl.textContent.trim();
-                }
-                
+            details = self.driver.execute_script("""
+                var r = window.ytInitialPlayerResponse;
+                if (!r || !r.microformat || !r.microformat.playerMicroformatRenderer) return {};
+                var mf = r.microformat.playerMicroformatRenderer;
                 return {
-                    views: viewsText,
-                    publishedAt: publishedAtText
+                    views: mf.viewCount,
+                    publishedAt: mf.publishDate
                 };
             """)
             
-            import re
-            views_raw = details.get('views', '')
             precise_views = None
-            if views_raw:
-                # Extrair os dígitos que vêm antes da palavra 'visualiza' ou 'view'
-                # Garantimos que não haja letras abreviadas como 'mi', 'mil', 'k' coladas no número
-                match = re.search(r'([\d\.,]+)\s*(?:visualiza|view)', views_raw, re.IGNORECASE)
-                if match:
-                    num_str = match.group(1).replace('.', '').replace(',', '')
-                    if num_str.isdigit():
-                        precise_views = int(num_str)
+            if details.get('views'):
+                try:
+                    precise_views = int(details['views'])
+                except:
+                    pass
 
-            published_at = details.get('publishedAt', '')
-            # Extrair apenas a parte da data
-            date_match = re.search(r'(há\s+\d+\s+(?:minutos?|horas?|dias?|semanas?|meses|mês|anos?)|(?:Transmitido ao vivo em|Estreou em)\s+.*|\d{1,2}\s+de\s+[a-z]+\.?\s+de\s+\d{4})', published_at, re.IGNORECASE)
-            if date_match:
-                published_at = date_match.group(1).strip()
+            published_at = None
+            raw_date = details.get('publishedAt')
+            if raw_date:
+                import datetime
+                try:
+                    # Trata iso format ex: '2026-03-19T07:00:14-07:00'
+                    d = datetime.datetime.fromisoformat(raw_date.split('T')[0])
+                    meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+                    published_at = f"{d.day} de {meses[d.month-1]} de {d.year}"
+                except:
+                    published_at = raw_date
             
             logger.info(f"Detalhes extraídos - Views: {precise_views}, Data: {published_at}")
             return {
